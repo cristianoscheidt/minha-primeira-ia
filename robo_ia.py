@@ -2,12 +2,12 @@ import os
 from datetime import datetime
 from google import genai
 
-# Inicializa o novo cliente oficial (ele lê a variável GEMINI_API_KEY automaticamente)
+# Inicializa o cliente oficial (lê a chave GEMINI_API_KEY automaticamente)
 client = genai.Client()
 
 # Pede para a IA gerar o conteúdo usando o modelo atual
 resposta = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.8-flash",
     contents="Crie uma frase curta de motivação e uma dica prática de produtividade para hoje."
 )
 
