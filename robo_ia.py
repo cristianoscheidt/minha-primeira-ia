@@ -4,14 +4,14 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 
-# Configura o cliente com limite máximo de 15 segundos para não travar
+# Configura o cliente com limite de 15 segundos
 client = genai.Client(
     http_options=types.HttpOptions(timeout=15000)
 )
 
-# Usa o modelo Flash-Lite, que é muito mais rápido e sem fila
+# Usa o modelo gemini-3.5-flash-lite indicado pela própria API do Google
 resposta = client.models.generate_content(
-    model="gemini-2.5-flash-lite",
+    model="gemini-3.5-flash-lite",
     contents="Crie uma frase curta de motivação e uma dica prática de produtividade para hoje."
 )
 
