@@ -1,35 +1,36 @@
-name: Pesquisar Preco Farmacia
+name: Comparar preços de farmácias
 
 on:
   workflow_dispatch:
     inputs:
-      produto:
-        description: 'Nome do produto para pesquisar'
+      product:
+        description: "Produto para pesquisar (ex.: creme dental Colgate Total 12 90g)"
         required: true
-        default: 'creme dental colgate'
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
-  buscar-precos:
+  comparar:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
-      - name: Baixar codigo
+      - name: Baixar o projeto
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Preparar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.12"
+          cache: "pip"
 
-      - name: Instalar bibliotecas e navegador
-        run: |
-          pip install google-genai requests playwright playwright-stealth
-          playwright install chromium
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
 
-      - name: Consultar farmacias e comparar
+      - name: Consultar farmácias e enviar Telegram
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          PRODUCT_NAME: ${{ inputs.product }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          PRODUTO: ${{ github.event.inputs.produto }}
-        run: python farmacias.py
+        run: python comparar.py
