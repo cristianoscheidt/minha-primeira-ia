@@ -17,12 +17,12 @@ resposta = client.models.generate_content(
 
 texto_final = resposta.text
 
-# Monta o endereço oficial do Telegram garantindo a barra após .org
+# Monta a URL usando chr(47) para garantir a barra "/" sem o navegador apagar
+barra = chr(47)
 token = os.environ["TELEGRAM_TOKEN"].strip()
 chat_id = os.environ["TELEGRAM_CHAT_ID"].strip()
 
-base_url = "https://telegram.org"
-url_telegram = base_url + "bot" + token + "/sendMessage"
+url_telegram = f"https:{barra}{barra}api.telegram.org{barra}bot{token}{barra}sendMessage"
 
 resposta_tg = requests.post(url_telegram, json={
     "chat_id": chat_id,
