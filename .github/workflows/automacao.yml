@@ -11,6 +11,7 @@ permissions:
 jobs:
   executar-ia:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - name: Baixar arquivos do repositório
         uses: actions/checkout@v4
