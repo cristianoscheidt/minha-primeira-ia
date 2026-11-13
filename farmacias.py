@@ -135,10 +135,10 @@ def extract_price(session, item):
 
 
 def telegram_send(text):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    token = os.environ.get("TELEGRAM_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
-        raise RuntimeError("Configure TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID nos GitHub Secrets.")
+        raise RuntimeError("Configure TELEGRAM_TOKEN e TELEGRAM_CHAT_ID nos GitHub Secrets.")
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     response = requests.post(url, data={"chat_id": chat_id, "text": text, "disable_web_page_preview": True}, timeout=TIMEOUT)
     response.raise_for_status()
