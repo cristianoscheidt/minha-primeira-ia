@@ -3,664 +3,470 @@
 # -*- coding: utf-8 -*-
 
 """
-COMPARADOR DE FARMÁCIAS
-Região de referência: Balneário Camboriú - SC
+COMPARADOR DE PREÇOS - FARMÁCIAS
+Região: Balneário Camboriú - SC
 
-Consulta:
-- Droga Raia
-- Drogaria São João
-- Panvel
-- Drogaria Catarinense
-- Pague Menos
+Pesquisa via Tavily Search API.
+Envia os resultados ao Telegram.
 
-Não utiliza Tavily, Serper, Gemini ou DuckDuckGo.
-Tenta consultar catálogos públicos e páginas de busca das lojas.
-
-Atenção:
-Preços e estoque dependem das informações disponibilizadas
-por cada farmácia. A disponibilidade para retirada precisa
-ser confirmada no site ou aplicativo da loja.
+Farmácias:
+1. Droga Raia
+2. Drogaria São João
+3. Panvel
+4. Drogaria Catarinense
+5. Pague Menos
 """
 
-import json
 import os
 import re
 import sys
 import time
-from urllib.parse import quote, urljoin
-
 import requests
-from bs4 import BeautifulSoup
+
+from urllib.parse import urlparse
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
-TIMEOUT = 20
-MAX_RESULTS = 12
+# ==================================================
+# CONFIGURAÇÕES
+# ==================================================
+
+TAVILY_URL = "https://api.tavily.com/search"
+TIMEOUT = 45
+MAX_RESULTS = 5
 
 FARMACIAS = {
-    "Droga Raia": {
-        "domain": "https://www.drogaraia.com.br",
-        "search": "https://www.drogaraia.com.br/search?w={query}",
-    },
-    "Drogaria São João": {
-        "domain": "https://www.farmaciasaojoao.com.br",
-        "search": "https://www.farmaciasaojoao.com.br/busca?query={query}",
-    },
-    "Panvel": {
-        "domain": "https://www.panvel.com",
-        "search": "https://www.panvel.com/panvel/busca?termo={query}",
-    },
-    "Drogaria Catarinense": {
-        "domain": "https://www.drogariacatarinense.com.br",
-        "search": "https://www.drogariacatarinense.com.br/busca?ft={query}",
-    },
-    "Pague Menos": {
-        "domain": "https://www.paguemenos.com.br",
-        "search": "https://www.paguemenos.com.br/busca?ft={query}",
-    },
-}
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/json,*/*",
-    "Accept-Language": "pt-BR,pt;q=0.9",
+    "Droga Raia": "drogaraia.com.br",
+    "Drogaria São João": "farmaciasaojoao.com.br",
+    "Panvel": "panvel.com",
+    "Drogaria Catarinense": "drogariacatarinense.com.br",
+    "Pague Menos": "paguemenos.com.br",
 }
 
 
-# --------------------------------------------------
-# FORMATAÇÃO E CONVERSÃO DE PREÇOS
-# --------------------------------------------------
+# ==================================================
+# FORMATAÇÃO
+# ==================================================
 
-def brl(value):
+def brl(valor):
     return (
-        f"R$ {value:,.2f}"
+        f"R$ {valor:,.2f}"
         .replace(",", "X")
         .replace(".", ",")
         .replace("X", ".")
     )
 
 
-def to_number(value):
-    if value is None or isinstance(value, bool):
+def numero_preco(valor):
+
+    if not valor:
         return None
 
-    if isinstance(value, (int, float)):
-        number = float(value)
-    else:
-        text = str(value).strip()
-        text = text.replace("R$", "").replace(" ", "")
+    try:
+        valor = str(valor).replace("R$", "").strip()
 
-        if not text:
+        if "," in valor:
+            valor = valor.replace(".", "").replace(",", ".")
+
+        numero = float(valor)
+
+        if numero <= 0 or numero > 100000:
             return None
 
-        if "," in text:
-            text = text.replace(".", "").replace(",", ".")
+        return round(numero, 2)
 
-        try:
-            number = float(text)
-        except ValueError:
-            return None
-
-    if number <= 0 or number > 100000:
+    except (ValueError, TypeError):
         return None
 
-    return round(number, 2)
+
+def normalizar(texto):
+    return re.sub(r"\s+", " ", str(texto)).strip()
 
 
-def extract_prices(text):
-    pattern = (
-        r"R\$\s*"
-        r"([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|"
-        r"[0-9]+,[0-9]{2})"
+# ==================================================
+# TAVILY - PESQUISA
+# ==================================================
+
+def pesquisar_tavily(produto, farmacia, dominio, api_key):
+
+    query = (
+        f'{produto} preço promoção oferta '
+        f'farmácia Balneário Camboriú SC'
     )
 
-    matches = re.findall(pattern, text, flags=re.I)
+    payload = {
+        "query": query,
+        "search_depth": "basic",
+        "max_results": MAX_RESULTS,
+        "include_domains": [dominio],
+        "include_answer": False,
+        "include_raw_content": False,
+        "country": "Brazil"
+    }
 
-    return [
-        value
-        for value in (to_number(item) for item in matches)
-        if value is not None
-    ]
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    resposta = requests.post(
+        TAVILY_URL,
+        json=payload,
+        headers=headers,
+        timeout=TIMEOUT
+    )
+
+    resposta.raise_for_status()
+
+    dados = resposta.json()
+
+    resultados = []
+
+    for item in dados.get("results", []):
+
+        url = item.get("url", "")
+        titulo = normalizar(item.get("title", ""))
+        conteudo = normalizar(item.get("content", ""))
+
+        if not url:
+            continue
+
+        host = (urlparse(url).hostname or "").lower()
+
+        if not (host == dominio or host.endswith("." + dominio)):
+            continue
+
+        resultados.append({
+            "farmacia": farmacia,
+            "titulo": titulo,
+            "url": url,
+            "conteudo": conteudo,
+            "score": item.get("score", 0),
+            "data": item.get("published_date")
+        })
+
+    return resultados
 
 
-# --------------------------------------------------
-# VALIDAÇÃO DO PRODUTO
-# --------------------------------------------------
+# ==================================================
+# IDENTIFICAÇÃO DE PRODUTO E EMBALAGEM
+# ==================================================
 
-def product_matches(query, title):
+def verificar_produto(produto, resultado):
 
-    q = query.lower()
-    t = title.lower()
+    consulta = produto.lower()
+    texto = (
+        resultado["titulo"] + " " +
+        resultado["conteudo"]
+    ).lower()
 
-    brands = [
-        "colgate",
-        "close up",
-        "closeup",
-        "oral-b",
-        "sensodyne",
-    ]
+    consulta_compacta = re.sub(r"[^a-z0-9]", "", consulta)
+    texto_compacto = re.sub(r"[^a-z0-9]", "", texto)
 
-    for brand in brands:
-        if brand in q:
-            if brand.replace(" ", "") not in t.replace(" ", ""):
-                return False
+    # Verifica marca Close Up
+    if "closeup" in consulta_compacta:
+        if "closeup" not in texto_compacto:
+            return False
 
-    size = re.search(
+    # Verifica marca Colgate
+    if "colgate" in consulta_compacta:
+        if "colgate" not in texto_compacto:
+            return False
+
+    # Verifica tamanho solicitado
+    tamanho = re.search(
         r"\b(\d+(?:[,.]\d+)?)\s*(g|gr|ml)\b",
-        q,
+        consulta
     )
 
-    if size:
-        amount = size.group(1).replace(",", ".")
-        unit = size.group(2)
+    if tamanho:
 
-        pattern = (
-            rf"\b{re.escape(amount.rstrip('0').rstrip('.'))}"
-            rf"\s*(?:g|gr|ml)\b"
+        quantidade = tamanho.group(1).replace(",", ".")
+        unidade = tamanho.group(2)
+
+        padrao = (
+            rf"(?<!\d){re.escape(quantidade)}\s*"
+            rf"(?:{unidade}|{'g' if unidade == 'gr' else unidade})\b"
         )
 
-        if not re.search(pattern, t.replace(",", ".")):
-            return False
+        resultado["tamanho_confirmado"] = bool(
+            re.search(padrao, texto)
+        )
+
+    else:
+        resultado["tamanho_confirmado"] = True
 
     return True
 
 
-# --------------------------------------------------
-# LEITURA DE DADOS JSON
-# --------------------------------------------------
+# ==================================================
+# PREÇOS E PROMOÇÕES
+# ==================================================
 
-def walk_objects(value):
-
-    if isinstance(value, dict):
-        yield value
-
-        for child in value.values():
-            yield from walk_objects(child)
-
-    elif isinstance(value, list):
-        for child in value:
-            yield from walk_objects(child)
+PADRAO_PRECO = (
+    r"R\$\s*"
+    r"(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})"
+)
 
 
-def extract_json_products(soup, store, page_url, query):
+def extrair_precos(texto):
 
-    results = []
-
-    for script in soup.select(
-        'script[type="application/ld+json"]'
-    ):
-
-        try:
-            data = json.loads(
-                script.string or script.get_text()
-            )
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-        for obj in walk_objects(data):
-
-            product_type = obj.get("@type", "")
-
-            if isinstance(product_type, list):
-                product_type = " ".join(product_type)
-
-            if "Product" not in str(product_type):
-                continue
-
-            title = obj.get("name") or ""
-
-            if not title:
-                continue
-
-            if not product_matches(query, title):
-                continue
-
-            offers = obj.get("offers") or {}
-
-            if isinstance(offers, list):
-                offers = offers[0] if offers else {}
-
-            if not isinstance(offers, dict):
-                continue
-
-            price = to_number(
-                offers.get("price")
-                or offers.get("lowPrice")
-            )
-
-            if not price:
-                continue
-
-            link = obj.get("url") or page_url
-
-            results.append({
-                "store": store,
-                "title": title,
-                "url": urljoin(page_url, link),
-                "price": price,
-                "list_price": None,
-                "available": offers.get("availability"),
-                "source": "Dados estruturados da página",
-                "promotion_text": " ".join(
-                    soup.get_text(" ", strip=True).split()
-                ),
-            })
-
-    return results
-
-
-# --------------------------------------------------
-# CONSULTA AO CATÁLOGO VTEX
-# --------------------------------------------------
-
-def search_vtex(session, store, config, query):
-
-    base = config["domain"]
-
-    api_url = (
-        f"{base}/api/catalog_system/pub/products/search/"
-        f"{quote(query)}?_from=0&_to=49"
+    encontrados = re.findall(
+        PADRAO_PRECO,
+        texto,
+        flags=re.IGNORECASE
     )
 
-    response = session.get(
-        api_url,
-        headers={
-            **HEADERS,
-            "Accept": "application/json",
-        },
-        timeout=TIMEOUT,
+    precos = []
+
+    for item in encontrados:
+
+        valor = numero_preco(item)
+
+        if valor is not None and valor not in precos:
+            precos.append(valor)
+
+    return precos
+
+
+def identificar_promocao(texto):
+
+    texto = normalizar(texto)
+
+    # Preço promocional por unidade seguido da quantidade.
+    padrao_unitario = re.search(
+        PADRAO_PRECO +
+        r"\s*(?:cada|por unidade)?"
+        r".{0,100}?"
+        r"(?:levando|na compra de|comprando|a partir de)"
+        r"\s*(\d{1,2})\s*"
+        r"(?:unidades|unid\.?|un\.?)",
+        texto,
+        flags=re.IGNORECASE
     )
 
-    if response.status_code != 200:
-        return []
+    if padrao_unitario:
 
-    try:
-        products = response.json()
-    except ValueError:
-        return []
+        unitario = numero_preco(padrao_unitario.group(1))
+        quantidade = int(padrao_unitario.group(2))
 
-    if not isinstance(products, list):
-        return []
+        if unitario and quantidade > 1:
 
-    results = []
+            return {
+                "unitario": unitario,
+                "quantidade": quantidade,
+                "total": round(unitario * quantidade, 2),
+                "normal": identificar_preco_normal(texto)
+            }
 
-    for product in products:
-
-        if not isinstance(product, dict):
-            continue
-
-        title = (
-            product.get("productName")
-            or product.get("productTitle")
-            or ""
-        )
-
-        if not product_matches(query, title):
-            continue
-
-        items = product.get("items") or []
-
-        offers = []
-
-        for item in items:
-
-            sellers = item.get("sellers") or []
-
-            for seller in sellers:
-
-                commercial = (
-                    seller.get("commertialOffer")
-                    or seller.get("commercialOffer")
-                    or {}
-                )
-
-                price = to_number(
-                    commercial.get("Price")
-                )
-
-                list_price = to_number(
-                    commercial.get("ListPrice")
-                )
-
-                if price:
-
-                    offers.append({
-                        "price": price,
-                        "list_price": list_price,
-                        "available": commercial.get(
-                            "AvailableQuantity"
-                        ),
-                    })
-
-        if not offers:
-            continue
-
-        offer = min(
-            offers,
-            key=lambda item: item["price"],
-        )
-
-        link = product.get("link") or ""
-
-        results.append({
-            "store": store,
-            "title": title,
-            "url": urljoin(base, link),
-            "price": offer["price"],
-            "list_price": (
-                offer["list_price"]
-                if offer["list_price"]
-                and offer["list_price"] > offer["price"]
-                else None
-            ),
-            "available": offer["available"],
-            "source": "Catálogo público da loja",
-            "promotion_text": "",
-        })
-
-        if len(results) >= MAX_RESULTS:
-            break
-
-    return results
-
-
-# --------------------------------------------------
-# CONSULTA À BUSCA INTERNA DA FARMÁCIA
-# --------------------------------------------------
-
-def search_html(session, store, config, query):
-
-    search_url = config["search"].format(
-        query=quote(query)
-    )
-
-    response = session.get(
-        search_url,
-        headers=HEADERS,
-        timeout=TIMEOUT,
-        allow_redirects=True,
-    )
-
-    if response.status_code != 200:
-        return [], (
-            f"Busca interna respondeu HTTP "
-            f"{response.status_code}"
-        )
-
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser",
-    )
-
-    results = extract_json_products(
-        soup,
-        store,
-        response.url,
-        query,
-    )
-
-    if results:
-        return results[:MAX_RESULTS], None
-
-    selectors = [
-        "[data-product-name]",
-        ".product-item",
-        ".product-card",
-        ".shelf-item",
-        "article",
-    ]
-
-    for selector in selectors:
-
-        for node in soup.select(selector):
-
-            title = node.get("data-product-name") or ""
-
-            if not title:
-
-                title_node = node.select_one(
-                    "h2, h3, .product-name, "
-                    ".product-title, a[title]"
-                )
-
-                if title_node:
-
-                    title = (
-                        title_node.get("title")
-                        or title_node.get_text(
-                            " ",
-                            strip=True,
-                        )
-                    )
-
-            if not title:
-                continue
-
-            if not product_matches(query, title):
-                continue
-
-            text = " ".join(
-                node.get_text(" ", strip=True).split()
-            )
-
-            prices = extract_prices(text)
-
-            if not prices:
-                continue
-
-            link_node = node.select_one("a[href]")
-
-            link = (
-                urljoin(
-                    response.url,
-                    link_node.get("href"),
-                )
-                if link_node
-                else response.url
-            )
-
-            results.append({
-                "store": store,
-                "title": title,
-                "url": link,
-                "price": min(prices),
-                "list_price": (
-                    max(prices)
-                    if len(prices) > 1
-                    else None
-                ),
-                "available": None,
-                "source": "Preço visível no cartão",
-                "promotion_text": text,
-            })
-
-            if len(results) >= MAX_RESULTS:
-                break
-
-        if results:
-            break
-
-    return results[:MAX_RESULTS], None
-
-
-# --------------------------------------------------
-# IDENTIFICAÇÃO DE PROMOÇÕES
-# --------------------------------------------------
-
-def promotion_details(text, observed_price):
-
-    clean = " ".join(text.split())
-
-    quantity = None
-
-    patterns = [
-        r"(?:levando|na compra de|com a compra de|"
-        r"a partir de|leve)\s*(\d{1,2})\s*"
-        r"(?:unidades|unid\.?|un\.?|produtos)",
-
+    # Quantidade por preço total do pacote.
+    padrao_pacote = re.search(
         r"(\d{1,2})\s*"
-        r"(?:unidades|unid\.?|un\.?)\s*"
-        r"(?:por|a)\s*R\$",
-    ]
-
-    for pattern in patterns:
-
-        match = re.search(
-            pattern,
-            clean,
-            flags=re.I,
-        )
-
-        if match:
-            quantity = int(match.group(1))
-            break
-
-    normal_price = None
-
-    normal_match = re.search(
-        r"(?:preço\s*normal|de)\s*:?\s*"
-        r"R\$\s*"
-        r"([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|"
-        r"[0-9]+,[0-9]{2})",
-        clean,
-        flags=re.I,
+        r"(?:unidades|unid\.?|un\.?)"
+        r".{0,40}?"
+        r"(?:por|a)\s*"
+        + PADRAO_PRECO,
+        texto,
+        flags=re.IGNORECASE
     )
 
-    if normal_match:
-        normal_price = to_number(
-            normal_match.group(1)
-        )
+    if padrao_pacote:
 
-    pack_match = re.search(
-        r"(\d{1,2})\s*"
-        r"(?:unidades|unid\.?|un\.?)\s*"
-        r"(?:por|a)\s*R\$\s*"
-        r"([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|"
-        r"[0-9]+,[0-9]{2})",
-        clean,
-        flags=re.I,
+        quantidade = int(padrao_pacote.group(1))
+        total = numero_preco(padrao_pacote.group(2))
+
+        if total and quantidade > 1:
+
+            return {
+                "unitario": round(total / quantidade, 2),
+                "quantidade": quantidade,
+                "total": total,
+                "normal": identificar_preco_normal(texto)
+            }
+
+    # Formato: leve 4, pague 3.
+    padrao_leve_pague = re.search(
+        r"leve\s*(\d+)\s*,?\s*pague\s*(\d+)",
+        texto,
+        flags=re.IGNORECASE
     )
 
-    if pack_match:
+    if padrao_leve_pague:
 
-        quantity = int(pack_match.group(1))
+        leve = int(padrao_leve_pague.group(1))
+        pague = int(padrao_leve_pague.group(2))
 
-        total_pack = to_number(
-            pack_match.group(2)
-        )
+        precos = extrair_precos(texto)
 
-        if total_pack and quantity:
-            observed_price = round(
-                total_pack / quantity,
-                2,
-            )
+        if leve > pague and precos:
 
-    if quantity and observed_price:
+            unitario = precos[0]
 
-        total = round(
-            observed_price * quantity,
-            2,
-        )
-
-        savings = None
-
-        if normal_price and normal_price > observed_price:
-            savings = round(
-                (normal_price - observed_price)
-                * quantity,
-                2,
-            )
-
-        return {
-            "unit_price": observed_price,
-            "quantity": quantity,
-            "total": total,
-            "normal_price": normal_price,
-            "savings": savings,
-        }
+            return {
+                "unitario": round(
+                    unitario * pague / leve, 2
+                ),
+                "quantidade": leve,
+                "total": round(
+                    unitario * pague, 2
+                ),
+                "normal": unitario
+            }
 
     return None
 
 
-# --------------------------------------------------
-# FORMATAÇÃO DOS RESULTADOS
-# --------------------------------------------------
+def identificar_preco_normal(texto):
 
-def format_product(item):
-
-    lines = [
-        f"{item['store']}: {brl(item['price'])}",
-        item["title"],
-        item["url"],
-    ]
-
-    promo = promotion_details(
-        item.get("promotion_text", ""),
-        item["price"],
+    padrao = re.search(
+        r"(?:preço normal|preço regular|de)\s*:?\s*"
+        + PADRAO_PRECO
+        + r"\s*(?:por unidade|cada|a unidade)?",
+        texto,
+        flags=re.IGNORECASE
     )
+
+    if padrao:
+        return numero_preco(padrao.group(1))
+
+    return None
+
+
+def identificar_preco_unitario(texto):
+
+    padrao = re.search(
+        PADRAO_PRECO +
+        r"\s*(?:por unidade|cada|a unidade)",
+        texto,
+        flags=re.IGNORECASE
+    )
+
+    if padrao:
+        return numero_preco(padrao.group(1))
+
+    return None
+
+
+# ==================================================
+# ORGANIZAÇÃO DOS RESULTADOS
+# ==================================================
+
+def formatar_resultado(item):
+
+    linhas = []
+
+    linhas.append(f"🏪 {item['farmacia']}")
+    linhas.append(item["titulo"])
+    linhas.append(item["url"])
+
+    if not item["tamanho_confirmado"]:
+        linhas.append(
+            "⚠️ Embalagem não confirmada no trecho."
+        )
+
+    promo = identificar_promocao(item["conteudo"])
 
     if promo:
 
-        lines.extend([
-            "",
-            f"PROMOÇÃO: {brl(promo['unit_price'])} "
-            f"– levando {promo['quantity']} unidades.",
-        ])
+        linhas.append("")
+        linhas.append(
+            f"🔥 {brl(promo['unitario'])} "
+            f"– levando {promo['quantidade']} unidades."
+        )
 
-        if promo["normal_price"]:
+        if promo["normal"]:
 
-            lines.append(
-                f"Preço normal: "
-                f"{brl(promo['normal_price'])} "
+            linhas.append(
+                f"Preço normal: {brl(promo['normal'])} "
                 f"por unidade."
             )
 
         else:
 
-            lines.append(
+            linhas.append(
                 "Preço normal: não identificado."
             )
 
-        lines.append(
-            f"Total de {promo['quantity']} unidades: "
+        linhas.append(
+            f"Total de {promo['quantidade']} unidades: "
             f"{brl(promo['total'])}."
         )
 
-        if promo["savings"] is not None:
+        if promo["normal"]:
 
-            lines.append(
-                f"Economia na quantidade mínima: "
-                f"{brl(promo['savings'])}."
+            economia = round(
+                (promo["normal"] - promo["unitario"])
+                * promo["quantidade"],
+                2
             )
 
-    elif (
-        item.get("list_price")
-        and item["list_price"] > item["price"]
-    ):
+            if economia > 0:
 
-        lines.append(
-            f"Preço anterior/listado: "
-            f"{brl(item['list_price'])}."
+                linhas.append(
+                    f"Economia: {brl(economia)}."
+                )
+
+        item["preco_comparavel"] = promo["unitario"]
+
+    else:
+
+        unitario = identificar_preco_unitario(
+            item["conteudo"]
         )
 
-    if item.get("available") is not None:
+        precos = extrair_precos(item["conteudo"])
 
-        lines.append(
-            f"Disponibilidade informada pela página: "
-            f"{item['available']}."
+        if unitario:
+
+            linhas.append(
+                f"Preço unitário identificado: {brl(unitario)}."
+            )
+
+            item["preco_comparavel"] = unitario
+
+        elif precos:
+
+            linhas.append(
+                "Valores encontrados no texto: "
+                + ", ".join(brl(p) for p in precos[:4])
+            )
+
+            linhas.append(
+                "⚠️ Não foi possível confirmar se o preço "
+                "é unitário ou promocional."
+            )
+
+            item["preco_comparavel"] = None
+
+        else:
+
+            linhas.append(
+                "Preço não identificado no resultado."
+            )
+
+            item["preco_comparavel"] = None
+
+    if item.get("data"):
+        linhas.append(
+            f"Data informada pela fonte: {item['data']}"
         )
 
-    return "\n".join(lines)
+    trecho = item["conteudo"][:450]
+
+    if trecho:
+        linhas.append("")
+        linhas.append("Trecho encontrado:")
+        linhas.append(trecho)
+
+    return "\n".join(linhas)
 
 
-# --------------------------------------------------
-# ENVIO PARA O TELEGRAM
-# --------------------------------------------------
+# ==================================================
+# TELEGRAM
+# ==================================================
 
-def telegram_send(message):
+def telegram_send(mensagem):
 
     token = (
         os.getenv("TELEGRAM_TOKEN", "").strip()
@@ -668,240 +474,245 @@ def telegram_send(message):
     )
 
     chat_id = os.getenv(
-        "TELEGRAM_CHAT_ID",
-        "",
+        "TELEGRAM_CHAT_ID", ""
     ).strip()
 
     if not token or not chat_id:
 
-        missing = []
-
-        if not token:
-            missing.append("TELEGRAM_TOKEN")
-
-        if not chat_id:
-            missing.append("TELEGRAM_CHAT_ID")
-
         raise RuntimeError(
-            "Secrets ausentes no ambiente: "
-            + ", ".join(missing)
+            "Configure TELEGRAM_TOKEN e TELEGRAM_CHAT_ID."
         )
 
-    endpoint = (
+    url = (
         f"https://api.telegram.org/bot{token}/sendMessage"
     )
 
-    chunks = []
-    remaining = message
+    partes = []
 
-    while remaining:
+    while mensagem:
 
-        if len(remaining) <= 3900:
-            chunks.append(remaining)
+        if len(mensagem) <= 3900:
+            partes.append(mensagem)
             break
 
-        cut = remaining.rfind(
-            "\n",
-            0,
-            3900,
-        )
+        corte = mensagem.rfind("\n", 0, 3900)
 
-        if cut < 1000:
-            cut = 3900
+        if corte < 1000:
+            corte = 3900
 
-        chunks.append(remaining[:cut])
+        partes.append(mensagem[:corte])
+        mensagem = mensagem[corte:].lstrip()
 
-        remaining = remaining[cut:].lstrip()
+    for parte in partes:
 
-    for chunk in chunks:
-
-        response = requests.post(
-            endpoint,
+        resposta = requests.post(
+            url,
             data={
                 "chat_id": chat_id,
-                "text": chunk,
-                "disable_web_page_preview": True,
+                "text": parte,
+                "disable_web_page_preview": True
             },
-            timeout=TIMEOUT,
+            timeout=TIMEOUT
         )
 
-        response.raise_for_status()
+        resposta.raise_for_status()
 
-        payload = response.json()
-
-        if not payload.get("ok"):
-
+        if not resposta.json().get("ok"):
             raise RuntimeError(
-                "Telegram recusou a mensagem: "
-                + str(
-                    payload.get(
-                        "description",
-                        "erro desconhecido",
-                    )
-                )
+                "Erro ao enviar mensagem ao Telegram."
             )
 
 
-# --------------------------------------------------
+# ==================================================
 # EXECUÇÃO PRINCIPAL
-# --------------------------------------------------
+# ==================================================
 
 def main():
 
-    query = (
+    produto = (
         " ".join(sys.argv[1:]).strip()
         or os.getenv("PRODUCT", "").strip()
     )
 
-    if not query:
+    if not produto:
+        raise SystemExit("Informe o nome do produto.")
 
-        raise SystemExit(
-            "Informe o produto no campo produto "
-            "do GitHub Actions."
+    api_key = os.getenv(
+        "TAVILY_API_KEY", ""
+    ).strip()
+
+    if not api_key:
+        raise RuntimeError(
+            "Secret TAVILY_API_KEY não encontrado no GitHub."
         )
 
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    print(f"Produto pesquisado: {produto}")
 
-    all_results = []
-    store_status = {}
+    todos_resultados = []
+    status = {}
 
-    for store, config in FARMACIAS.items():
+    for farmacia, dominio in FARMACIAS.items():
 
-        print(f"Consultando {store}...")
+        print(f"Pesquisando: {farmacia}")
 
         try:
 
-            results = search_vtex(
-                session,
-                store,
-                config,
-                query,
+            resultados = pesquisar_tavily(
+                produto,
+                farmacia,
+                dominio,
+                api_key
             )
 
-            error = None
+            validos = []
 
-            if not results:
+            for item in resultados:
 
-                results, error = search_html(
-                    session,
-                    store,
-                    config,
-                    query,
-                )
+                if verificar_produto(produto, item):
+                    validos.append(item)
 
-            all_results.extend(results)
+            todos_resultados.extend(validos)
 
-            if results:
-
-                store_status[store] = (
-                    f"{len(results)} produto(s) encontrado(s)"
-                )
-
-            else:
-
-                store_status[store] = (
-                    error or "Nenhum preço identificado"
-                )
-
-        except requests.RequestException as exc:
-
-            store_status[store] = (
-                f"Erro de conexão: {exc.__class__.__name__}"
+            status[farmacia] = (
+                f"{len(validos)} resultado(s) encontrado(s)"
+                if validos
+                else "Nenhum produto correspondente encontrado"
             )
 
-        except Exception as exc:
+        except requests.HTTPError as erro:
 
-            store_status[store] = (
-                f"Falha: {exc.__class__.__name__}"
+            codigo = (
+                erro.response.status_code
+                if erro.response is not None
+                else "desconhecido"
             )
 
-        time.sleep(0.7)
+            status[farmacia] = (
+                f"Erro HTTP da Tavily: {codigo}"
+            )
 
-    # Remove resultados duplicados.
+        except requests.RequestException as erro:
 
-    unique = {}
+            status[farmacia] = (
+                f"Falha de conexão: {erro.__class__.__name__}"
+            )
 
-    for item in all_results:
+        except Exception as erro:
 
-        key = (
-            item["store"],
-            item["url"],
-            item["title"].lower(),
+            status[farmacia] = (
+                f"Erro: {erro.__class__.__name__}"
+            )
+
+        time.sleep(0.5)
+
+    # Remove duplicações.
+    unicos = {}
+
+    for item in todos_resultados:
+
+        chave = (
+            item["farmacia"],
+            item["url"]
         )
 
-        unique[key] = item
+        unicos[chave] = item
 
-    all_results = list(unique.values())
+    todos_resultados = list(unicos.values())
 
-    all_results.sort(
-        key=lambda item: item["price"]
-    )
-
-    lines = [
-        "🔎 COMPARADOR DE FARMÁCIAS",
-        f"Produto pesquisado: {query}",
-        "Região: Balneário Camboriú - SC",
-        "",
-        "Preços de catálogos e páginas públicas.",
-        "Retirada em loja não confirmada automaticamente.",
-        "",
+    # Resultados com preço unitário explícito e embalagem confirmada.
+    comparaveis = [
+        item for item in todos_resultados
+        if item.get("preco_comparavel") is not None
+        and item.get("tamanho_confirmado", False)
     ]
 
-    if all_results:
+    comparaveis.sort(
+        key=lambda item: item["preco_comparavel"]
+    )
 
-        lines.append(
-            "RESULTADOS COM PREÇO IDENTIFICADO:"
+    agora = datetime.now(
+        ZoneInfo("America/Sao_Paulo")
+    ).strftime("%d/%m/%Y às %H:%M")
+
+    linhas = [
+        "🔎 COMPARADOR DE FARMÁCIAS",
+        f"Produto: {produto}",
+        "Região: Balneário Camboriú - SC",
+        f"Consulta: {agora}",
+        "",
+        "RESULTADOS DA PESQUISA",
+        "======================"
+    ]
+
+    if todos_resultados:
+
+        for item in todos_resultados[:15]:
+
+            linhas.append("")
+            linhas.append(
+                formatar_resultado(item)
+            )
+            linhas.append("----------------------")
+
+    else:
+
+        linhas.append(
+            "Nenhum resultado correspondente foi encontrado."
         )
 
-        for item in all_results[:20]:
+    if comparaveis:
 
-            lines.extend([
-                "",
-                format_product(item),
-            ])
+        melhor = comparaveis[0]
 
-        best = all_results[0]
-
-        lines.extend([
+        linhas.extend([
             "",
-            "🏆 MENOR PREÇO ENCONTRADO:",
-            f"{brl(best['price'])} – {best['store']}",
+            "🏆 MENOR PREÇO UNITÁRIO IDENTIFICADO",
+            f"{brl(melhor['preco_comparavel'])}",
+            melhor["farmacia"],
+            melhor["titulo"],
+            melhor["url"]
         ])
 
     else:
 
-        lines.append(
-            "Não foi possível identificar preços "
-            "automaticamente nesta consulta."
-        )
+        linhas.extend([
+            "",
+            "⚠️ Não foi possível estabelecer um menor preço "
+            "unitário confiável nesta pesquisa."
+        ])
 
-    lines.extend([
+    linhas.extend([
         "",
-        "STATUS POR FARMÁCIA:",
+        "STATUS DAS CINCO FARMÁCIAS",
+        "=========================="
     ])
 
-    for store, status in store_status.items():
+    for farmacia, resultado in status.items():
 
-        lines.append(
-            f"• {store}: {status}"
+        linhas.append(
+            f"• {farmacia}: {resultado}"
         )
 
-    lines.extend([
+    linhas.extend([
         "",
-        "IMPORTANTE:",
-        "Promoções por quantidade só são calculadas "
-        "quando a condição aparece explicitamente "
-        "nos dados da página.",
-        "Confirme o preço final e o estoque para retirada "
-        "no site ou aplicativo antes de ir à loja.",
+        "OBSERVAÇÕES",
+        "Os resultados vêm de páginas indexadas e trechos "
+        "retornados pela pesquisa Tavily.",
+        "Não representam confirmação de estoque ou preço "
+        "em tempo real na unidade física.",
+        "Promoções por quantidade somente são calculadas "
+        "quando a condição aparece claramente no texto.",
+        "Confirme o valor e a disponibilidade para retirada "
+        "no site ou aplicativo antes de comprar."
     ])
 
-    message = "\n".join(lines)
+    mensagem = "\n".join(linhas)
 
-    print(message)
+    print(mensagem)
 
-    telegram_send(message)
+    telegram_send(mensagem)
+
+    print("Consulta enviada ao Telegram.")
 
 
 if __name__ == "__main__":
