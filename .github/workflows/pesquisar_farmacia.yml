@@ -15,7 +15,7 @@ permissions:
 jobs:
   comparar:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
 
     steps:
       - name: Baixar repositório
@@ -29,11 +29,20 @@ jobs:
       - name: Instalar bibliotecas
         run: |
           python -m pip install --upgrade pip
-          python -m pip install requests==2.32.3 beautifulsoup4==4.12.3
+          python -m pip install requests==2.32.3
+
+      - name: Verificar configuração
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -c "import os; assert os.getenv('TAVILY_API_KEY'), 'TAVILY_API_KEY ausente'; assert os.getenv('TELEGRAM_TOKEN'), 'TELEGRAM_TOKEN ausente'; assert os.getenv('TELEGRAM_CHAT_ID'), 'TELEGRAM_CHAT_ID ausente'; print('Credenciais configuradas.')"
 
       - name: Pesquisar preços e enviar Telegram
         env:
           PRODUCT: ${{ inputs.produto }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python farmacias.py
