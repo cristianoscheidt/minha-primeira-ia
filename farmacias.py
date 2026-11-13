@@ -3,7 +3,6 @@ import json
 import urllib.parse
 import requests
 from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync
 from google import genai
 from google.genai import types
 
@@ -21,22 +20,24 @@ urls_lojas = {
 resultados_brutos = {}
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(
+        headless=True,
+        args=["--disable-blink-features=AutomationControlled"]
+    )
     context = browser.new_context(
         viewport={"width": 1280, "height": 800},
         user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
         locale="pt-BR"
     )
     page = context.new_page()
-    stealth_sync(page)
+    page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
     for nome_loja, url in urls_lojas.items():
         try:
             print(f"Abrindo {nome_loja}...")
             page.goto(url, wait_until="domcontentloaded", timeout=20000)
-            page.wait_for_timeout(4000)  # Aguarda os preços carregarem na tela
+            page.wait_for_timeout(4500)  # Aguarda os preços carregarem na tela
             
-            # Extrai apenas as linhas da página que contêm R$ ou o nome do produto
             texto_pagina = page.inner_text("body")
             linhas_uteis = []
             for linha in texto_pagina.split("\n"):
