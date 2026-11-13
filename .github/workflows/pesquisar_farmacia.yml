@@ -11,7 +11,7 @@ on:
 jobs:
   buscar-precos:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - name: Baixar codigo
         uses: actions/checkout@v4
@@ -21,8 +21,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar bibliotecas
-        run: pip install google-genai requests beautifulsoup4
+      - name: Instalar bibliotecas e navegador
+        run: |
+          pip install google-genai requests playwright playwright-stealth
+          playwright install chromium
 
       - name: Consultar farmacias e comparar
         env:
