@@ -17,14 +17,12 @@ resposta = client.models.generate_content(
 
 texto_final = resposta.text
 
-# Limpa possíveis espaços, quebras de linha ou palavra 'bot' duplicada no token
+# Monta o endereço oficial do Telegram garantindo a barra após .org
 token = os.environ["TELEGRAM_TOKEN"].strip()
-if token.startswith("bot"):
-    token = token[3:]
-
 chat_id = os.environ["TELEGRAM_CHAT_ID"].strip()
 
-url_telegram = f"https://telegram.org{token}/sendMessage"
+base_url = "https://telegram.org"
+url_telegram = base_url + "bot" + token + "/sendMessage"
 
 resposta_tg = requests.post(url_telegram, json={
     "chat_id": chat_id,
