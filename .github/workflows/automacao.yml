@@ -1,13 +1,10 @@
 name: Rodar IA Automaticamente
 
 on:
-  # Permite que você clique em um botão para testar agora mesmo
   workflow_dispatch:
-  # Roda automaticamente todos os dias às 09:00 da manhã (horário de Brasília)
   schedule:
     - cron: '0 12 * * *'
 
-# Dá permissão para o robô escrever o resultado no seu repositório
 permissions:
   contents: write
 
@@ -23,8 +20,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar biblioteca do Google Gemini
-        run: pip install google-generativeai
+      - name: Instalar nova biblioteca do Google Gemini
+        run: pip install google-genai
 
       - name: Executar o código da IA
         env:
