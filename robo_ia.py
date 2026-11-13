@@ -9,7 +9,7 @@ client = genai.Client(
     http_options=types.HttpOptions(timeout=15000)
 )
 
-# Usa o modelo gemini-3.5-flash-lite indicado pela própria API do Google
+# Gera o texto com o Gemini
 resposta = client.models.generate_content(
     model="gemini-3.5-flash-lite",
     contents="Crie uma frase curta de motivação e uma dica prática de produtividade para hoje."
@@ -17,9 +17,13 @@ resposta = client.models.generate_content(
 
 texto_final = resposta.text
 
-# Envia a mensagem para o seu Telegram no iPhone
-token = os.environ["TELEGRAM_TOKEN"]
-chat_id = os.environ["TELEGRAM_CHAT_ID"]
+# Limpa possíveis espaços, quebras de linha ou palavra 'bot' duplicada no token
+token = os.environ["TELEGRAM_TOKEN"].strip()
+if token.startswith("bot"):
+    token = token[3:]
+
+chat_id = os.environ["TELEGRAM_CHAT_ID"].strip()
+
 url_telegram = f"https://telegram.org{token}/sendMessage"
 
 resposta_tg = requests.post(url_telegram, json={
@@ -27,7 +31,6 @@ resposta_tg = requests.post(url_telegram, json={
     "text": f"🤖 Sua dose diária de IA:\n\n{texto_final}"
 })
 
-# Verifica se o Telegram aceitou a mensagem
 if resposta_tg.status_code != 200:
     raise Exception(f"Erro ao enviar no Telegram: {resposta_tg.text}")
 
