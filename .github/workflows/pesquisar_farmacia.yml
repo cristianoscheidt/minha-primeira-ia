@@ -3,7 +3,7 @@ name: Comparar preços de farmácias
 on:
   workflow_dispatch:
     inputs:
-      product:
+      produto:
         description: "Produto para pesquisar (ex.: creme dental Colgate Total 12 90g)"
         required: true
         type: string
@@ -14,12 +14,12 @@ permissions:
 jobs:
   comparar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Baixar o projeto
+      - name: Baixar o repositório
         uses: actions/checkout@v4
 
-      - name: Preparar Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -28,9 +28,9 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Consultar farmácias e enviar Telegram
+      - name: Pesquisar preços e enviar ao Telegram
         env:
-          PRODUCT_NAME: ${{ inputs.product }}
+          PRODUCT: ${{ inputs.produto }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python comparar.py
+        run: python farmacias.py
