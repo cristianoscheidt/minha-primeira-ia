@@ -1,0 +1,40 @@
+name: Rodar IA Automaticamente
+
+on:
+  # Permite que você clique em um botão para testar agora mesmo
+  workflow_dispatch:
+  # Roda automaticamente todos os dias às 09:00 da manhã (horário de Brasília)
+  schedule:
+    - cron: '0 12 * * *'
+
+# Dá permissão para o robô escrever o resultado no seu repositório
+permissions:
+  contents: write
+
+jobs:
+  executar-ia:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar arquivos do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python na nuvem
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar biblioteca do Google Gemini
+        run: pip install google-generativeai
+
+      - name: Executar o código da IA
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python robo_ia.py
+
+      - name: Salvar o resultado no GitHub
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Robô IA"
+          git add README.md
+          git commit -m "Atualização automática da IA" || exit 0
+          git push
