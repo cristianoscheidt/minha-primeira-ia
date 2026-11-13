@@ -26,14 +26,17 @@ lojas_vtex = {
 for nome_loja, url in lojas_vtex.items():
     try:
         r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code in:
+        if r.status_code == 200 or r.status_code == 206:
             dados = r.json()
             itens = []
             for p in dados[:4]:
                 nome = p.get("productName", "")
                 try:
-                    preco = p["items"][0]["sellers"][0]["commertialOffer"]["Price"]
-                    disponivel = p["items"][0]["sellers"][0]["commertialOffer"]["AvailableQuantity"]
+                    primeiro_item = next(iter(p.get("items", [])), {})
+                    primeiro_seller = next(iter(primeiro_item.get("sellers", [])), {})
+                    oferta = primeiro_seller.get("commertialOffer", {})
+                    preco = oferta.get("Price", 0)
+                    disponivel = oferta.get("AvailableQuantity", 0)
                     if preco > 0 and disponivel > 0:
                         itens.append(f"{nome}: R$ {preco:.2f}")
                 except Exception:
