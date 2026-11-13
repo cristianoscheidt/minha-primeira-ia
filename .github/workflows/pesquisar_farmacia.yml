@@ -1,0 +1,33 @@
+name: Pesquisar Preco Farmacia
+
+on:
+  workflow_dispatch:
+    inputs:
+      produto:
+        description: 'Nome do produto para pesquisar'
+        required: true
+        default: 'creme dental colgate'
+
+jobs:
+  buscar-precos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar bibliotecas
+        run: pip install google-genai requests beautifulsoup4
+
+      - name: Consultar farmacias e comparar
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PRODUTO: ${{ github.event.inputs.produto }}
+        run: python farmacias.py
