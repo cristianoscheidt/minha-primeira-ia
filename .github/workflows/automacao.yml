@@ -35,6 +35,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "Robô IA"
-          git add README.md
+          git add README.md historico.json
           git commit -m "Atualização automática da IA" || exit 0
           git push
