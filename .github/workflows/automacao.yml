@@ -3,7 +3,7 @@ name: Rodar IA Automaticamente
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '0 10 * * *'
 
 permissions:
   contents: write
