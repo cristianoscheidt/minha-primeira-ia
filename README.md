@@ -1,9 +1,7 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 16/11/2026 às 11:55 (UTC)
+**Última atualização:** 16/11/2026 às 13:57 (UTC)
 
-**Frase de motivação:** 
-"O progresso pequeno de hoje é a base da grande vitória de amanhã. Apenas comece."
+💪 Motivação: A fundação mais sólida é construída com os tijolos dos planos que desabaram e foram reerguidos.
 
-**Dica prática de produtividade:** 
-Aplique a **"Regra dos 2 Minutos"**: se uma tarefa leva menos de dois minutos para ser feita (como responder a um e-mail rápido, lavar a xícara de café ou organizar a mesa), faça-a imediatamente. Isso evita o acúmulo de microtrefas que geram ansiedade.
+⚡ Dica de produtividade: Aplique a regra do "impacto reverso": comece o dia eliminando a tarefa mais desconfortável, aquela que você está tentando adiar.
