@@ -1,7 +1,6 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 16/11/2026 às 13:57 (UTC)
+**Última atualização:** 17/11/2026 às 10:50 (UTC)
 
-💪 Motivação: A fundação mais sólida é construída com os tijolos dos planos que desabaram e foram reerguidos.
-
-⚡ Dica de produtividade: Aplique a regra do "impacto reverso": comece o dia eliminando a tarefa mais desconfortável, aquela que você está tentando adiar.
+💪 Motivação: O foco não é olhar fixamente para a linha de chegada, mas silenciar a sinfonia de ruídos ao seu redor até restar apenas o seu próximo passo.
+⚡ Dica de produtividade: No intervalo de 5 minutos da Técnica Pomodoro, mude completamente de estímulo físico: faça alguns agachamentos ou olhe pela janela para a distância máxima, resetando sua fadiga visual e mental.
