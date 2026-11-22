@@ -1,6 +1,6 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 21/11/2026 às 10:37 (UTC)
+**Última atualização:** 22/11/2026 às 10:37 (UTC)
 
-💪 Motivação: A energia positiva não é a ausência de tempestades internas, mas a decisão consciente de não alimentar os ventos contrários.  
-⚡ Dica de produtividade: No domingo à noite, selecione apenas três prioridades absolutas para a semana; tudo o que surgir além disso será tratado como bônus ou delegado.
+💪 Motivação: A casca mais dura não nasce da calmaria, mas da cicatrização sob a pressão contínua das intempéries.
+⚡ Dica de produtividade: Crie templates de texto para e-mails e mensagens que você envia repetidamente, utilizando atalhos de expansão automática no teclado para economizar minutos preciosos.
