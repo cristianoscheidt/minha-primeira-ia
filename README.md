@@ -1,6 +1,6 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 22/11/2026 às 10:37 (UTC)
+**Última atualização:** 23/11/2026 às 10:54 (UTC)
 
-💪 Motivação: A casca mais dura não nasce da calmaria, mas da cicatrização sob a pressão contínua das intempéries.
-⚡ Dica de produtividade: Crie templates de texto para e-mails e mensagens que você envia repetidamente, utilizando atalhos de expansão automática no teclado para economizar minutos preciosos.
+💪 Motivação: A pressa consome o capital da mente, enquanto a paciência juros compostos colhe no tempo certo.
+⚡ Dica de produtividade: Agrupe suas pausas em blocos temáticos de "descarga mental" (como caminhar sem celular) em vez de micro-intervalos fragmentados.
