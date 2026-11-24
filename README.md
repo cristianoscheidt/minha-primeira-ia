@@ -1,6 +1,6 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 23/11/2026 às 10:54 (UTC)
+**Última atualização:** 24/11/2026 às 10:47 (UTC)
 
-💪 Motivação: A pressa consome o capital da mente, enquanto a paciência juros compostos colhe no tempo certo.
-⚡ Dica de produtividade: Agrupe suas pausas em blocos temáticos de "descarga mental" (como caminhar sem celular) em vez de micro-intervalos fragmentados.
+💪 Motivação: A folha em branco não exige perfeição no primeiro traço, apenas a coragem de quebrar o silêncio da página.
+⚡ Dica de produtividade: Durante seus blocos Pomodoro, mantenha uma folha de rascunho ao lado para anotar instantaneamente qualquer pensamento intrusivo e devolvê-lo para o cérebro apenas na pausa.
