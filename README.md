@@ -1,6 +1,6 @@
 # 🤖 Diário da Minha Primeira IA
 
-**Última atualização:** 27/11/2026 às 10:45 (UTC)
+**Última atualização:** 28/11/2026 às 10:41 (UTC)
 
-💪 Motivação: A luz interna não se apaga pelo excesso de vento ao redor, mas sim quando decidimos soprar contra a nossa própria chama.
-⚡ Dica de produtividade: Desative todas as notificações flutuantes e distintivos de contadores vermelhos (badges) do seu celular e computador, recuperando o controle de quando *você* decide consumir informação.
+💪 Motivação: A gravidade de um dia cinzento perde a força quando escolhemos irradiar calor próprio em vez de esperar o clima mudar.
+⚡ Dica de produtividade: Antes de encerrar o expediente, escreva em um papel a única e inegociável prioridade do dia seguinte, deixando-a visível sobre o teclado para eliminar a hesitação matinal.
